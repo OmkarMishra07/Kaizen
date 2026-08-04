@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  platformAccounts PlatformAccount[]
+  topicCoverages   TopicCoverage[]
+  checklistItems    SkillChecklistItem[]
+  projects         Project[]
+  dailyLogs        DailyActivityLog[]
+  scoreSnapshots   ScoreSnapshot[]
+}
+
+model PlatformAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  handle    String
+  metadata  String?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncLogs         PlatformSyncLog[]
+  problemSnapshots ProblemSolvedSnapshot[]
+}
+
+model PlatformSyncLog {
+  id                String   @id @default(cuid())
+  platformAccountId String
+  status            String
+  message           String?
+  rawData           String?
+  syncedAt          DateTime @default(now())
+
+  platformAccount PlatformAccount @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
+}
+
+model ProblemSolvedSnapshot {
+  id                String   @id @default(cuid())
+  platformAccountId String
+  snapshotDate      String
+  easySolved        Int      @default(0)
+  mediumSolved      Int      @default(0)
+  hardSolved        Int      @default(0)
+  totalSolved       Int      @default(0)
+  rating            Int?
+  contestCount      Int      @default(0)
+  topicBreakdown    String?
+  rawStats          String?
+  createdAt         DateTime @default(now())
+
+  platformAccount PlatformAccount @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([platformAccountId, snapshotDate])
+}
+
+model TopicCoverage {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String
+  easySolved  Int      @default(0)
+  mediumSolved Int     @default(0)
+  hardSolved  Int      @default(0)
+  totalSolved Int      @default(0)
+  lastUpdated DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topic])
+}
+
+model SkillChecklistItem {
+  id           String    @id @default(cuid())
+  userId       String
+  category     String
+  skill        String
+  description  String?
+  isCompleted  Boolean   @default(false)
+  evidenceUrl  String?
+  evidenceNote String?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  repoUrl         String?
+  techStack       String?
+  complexityScore Int      @default(0)
+  hasReadme       Boolean  @default(false)
+  hasTests        Boolean  @default(false)
+  hasCI           Boolean  @default(false)
+  interviewerNote String?
+  stars           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyActivityLog {
+  id              String   @id @default(cuid())
+  userId          String
+  date            String
+  platformActivity String?
+  notes           String?
+  syncedProblems  Int      @default(0)
+  commitsMade     Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model ScoreSnapshot {
+  id                String   @id @default(cuid())
+  userId            String
+  date              String
+  compositeScore    Int      @default(0)
+  rankLevel         String   @default("L0")
+  rankName          String   @default("Trainee")
+  dsaScore          Int      @default(0)
+  backendScore      Int      @default(0)
+  portfolioScore    Int      @default(0)
+  consistencyScore  Int      @default(0)
+  interviewScore    Int      @default(0)
+  dsaDetails        String?
+  backendDetails    String?
+  portfolioDetails  String?
+  consistencyDetails String?
+  interviewDetails  String?
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
