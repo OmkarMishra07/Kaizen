@@ -20,6 +20,54 @@ function parseTopicBreakdown(raw: Record<string, unknown> | undefined): ProblemS
   return Object.keys(breakdown).length > 0 ? breakdown : undefined
 }
 
+function computeStreakFromDates(dates: Date[]): { currentStreak: number; longestStreak: number } {
+  if (dates.length === 0) return { currentStreak: 0, longestStreak: 0 }
+  
+  // Normalize dates to local YYYY-MM-DD
+  const dateStrings = dates.map(d => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  
+  const dateSet = new Set(dateStrings)
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  
+  let currentStreak = 0
+  let checkDate = new Date(today)
+  
+  if (!dateSet.has(todayStr)) {
+    checkDate.setDate(checkDate.getDate() - 1)
+  }
+  
+  for (let i = 0; i < 1000; i++) {
+    const dStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`
+    if (dateSet.has(dStr)) {
+      currentStreak++
+      checkDate.setDate(checkDate.getDate() - 1)
+    } else {
+      break
+    }
+  }
+  
+  const sorted = Array.from(dateSet).sort()
+  let longestStreak = 0
+  let tempStreak = 1
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1])
+    const curr = new Date(sorted[i])
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays === 1) {
+      tempStreak++
+    } else {
+      longestStreak = Math.max(longestStreak, tempStreak)
+      tempStreak = 1
+    }
+  }
+  longestStreak = Math.max(longestStreak, tempStreak, currentStreak)
+  
+  return { currentStreak, longestStreak }
+}
+
 // ─── Codeforces Adapter ──────────────────────────────────────────────
 
 export class CodeforcesAdapter implements PlatformAdapter {
@@ -114,6 +162,11 @@ export class CodeforcesAdapter implements PlatformAdapter {
         }
       }
 
+      const subDates = submissions
+        .filter((s: any) => s.verdict === 'OK')
+        .map((s: any) => new Date(s.creationTimeSeconds * 1000))
+      const { currentStreak, longestStreak } = computeStreakFromDates(subDates)
+
       const data: ProblemStats = {
         easySolved,
         mediumSolved,
@@ -127,6 +180,8 @@ export class CodeforcesAdapter implements PlatformAdapter {
           rank: user.rank,
           maxRating: user.maxRating,
           ratingChanges: user.ratingChanges?.length || 0,
+          currentStreak,
+          longestStreak,
         },
       }
 
@@ -181,6 +236,9 @@ export class GitHubAdapter implements PlatformAdapter {
       const pushEvents = events.filter((e: { type: string }) => e.type === 'PushEvent')
       const recentCommits = pushEvents.length
 
+      const eventDates = pushEvents.map((e: any) => new Date(e.created_at))
+      const { currentStreak, longestStreak } = computeStreakFromDates(eventDates)
+
       const languages: Record<string, number> = {}
       for (const repo of repos) {
         if (repo.language) {
@@ -205,6 +263,8 @@ export class GitHubAdapter implements PlatformAdapter {
           languages,
           reposWithReadme,
           totalRepoSize,
+          currentStreak,
+          longestStreak,
           topRepos: repos.slice(0, 5).map((r: { name: string; html_url: string; description: string | null; stargazers_count: number; language: string | null }) => ({
             name: r.name,
             url: r.html_url,
@@ -239,29 +299,20 @@ export class LeetCodeAdapter implements PlatformAdapter {
   async fetchStats(handle: string): Promise<SyncResult> {
     try {
       const query = `
-        query userProfile($username: String!) {
+        query getUserProfile($username: String!) {
+          allQuestionsCount { difficulty count }
           matchedUser(username: $username) {
-            username
+            contributions { points }
+            profile { reputation ranking }
+            userCalendar { submissionCalendar }
             submitStats {
-              acSubmissionNum {
-                difficulty
-                count
-                submissions
-              }
+              acSubmissionNum { difficulty count submissions }
             }
-            profile {
-              ranking
-              userAvatar
-              reputation
+            tagProblemCounts {
+              advanced { tagName problemsSolved }
+              intermediate { tagName problemsSolved }
+              fundamental { tagName problemsSolved }
             }
-            contestBadge {
-              name
-              expired
-            }
-          }
-          allQuestionsCount {
-            difficulty
-            count
           }
         }
       `
@@ -321,7 +372,7 @@ export class LeetCodeAdapter implements PlatformAdapter {
       const topicQuery = `
         query skillStats($username: String!) {
           matchedUser(username: $username) {
-            tagProblemsSolved {
+            tagProblemCounts {
               advanced {
                 tagName
                 problemsSolved
@@ -348,54 +399,43 @@ export class LeetCodeAdapter implements PlatformAdapter {
         })
         if (topicRes.ok) {
           const topicData = await topicRes.json()
-          const tagData = topicData.data?.matchedUser?.tagProblemsSolved
+          const tagData = topicData.data?.matchedUser?.tagProblemCounts
           if (tagData) {
+            // Map each LC tag to ONE directly-related generic topic only.
+            // Tags like Hash Table, Stack, Math, Sorting are NOT mapped to Arrays
+            // because they represent different skills and would inflate the count.
             const lcToGeneric: Record<string, string> = {
               'Array': 'Arrays',
+              'Matrix': 'Arrays',
               'String': 'Strings',
-              'Hash Table': 'Arrays',
               'Tree': 'Trees',
               'Binary Tree': 'Trees',
               'Binary Search Tree': 'Trees',
+              'Segment Tree': 'Trees',
+              'Binary Indexed Tree': 'Trees',
               'Graph': 'Graphs',
-              'Dynamic Programming': 'Dynamic Programming',
-              'Heap': 'Heaps / Priority Queues',
-              'Priority Queue': 'Heaps / Priority Queues',
-              'Trie': 'Tries',
-              'Backtracking': 'Backtracking',
-              'Greedy': 'Greedy',
-              'Binary Search': 'Binary Search',
-              'Two Pointers': 'Two Pointers',
-              'Sliding Window': 'Sliding Window',
-              'Stack': 'Arrays',
-              'Queue': 'Arrays',
-              'Linked List': 'Arrays',
-              'Matrix': 'Arrays',
-              'Math': 'Arrays',
-              'Sorting': 'Arrays',
-              'Database': 'Arrays',
-              'Bit Manipulation': 'Arrays',
-              'Recursion': 'Backtracking',
-              'Divide and Conquer': 'Trees',
               'Breadth-First Search': 'Graphs',
               'Depth-First Search': 'Graphs',
               'Union Find': 'Graphs',
               'Topological Sort': 'Graphs',
               'Minimum Spanning Tree': 'Graphs',
-              'Design': 'Heaps / Priority Queues',
-              'Monotonic Stack': 'Arrays',
-              'Prefix Sum': 'Arrays',
-              'Hash Set': 'Arrays',
-              'Counting': 'Arrays',
-              'Merge Sort': 'Arrays',
-              'Quick Select': 'Arrays',
-              'Segment Tree': 'Trees',
-              'Binary Indexed Tree': 'Trees',
-              'Combinatorics': 'Dynamic Programming',
+              'Dynamic Programming': 'Dynamic Programming',
               'Memoization': 'Dynamic Programming',
-              'Number Theory': 'Arrays',
+              'Heap (Priority Queue)': 'Heaps / Priority Queues',
+              'Heap': 'Heaps / Priority Queues',
+              'Priority Queue': 'Heaps / Priority Queues',
+              'Trie': 'Tries',
+              'Backtracking': 'Backtracking',
+              'Recursion': 'Backtracking',
+              'Greedy': 'Greedy',
+              'Binary Search': 'Binary Search',
+              'Two Pointers': 'Two Pointers',
+              'Sliding Window': 'Sliding Window',
             }
 
+            // Use Math.max when multiple LC tags map to the same generic topic,
+            // because they heavily overlap (e.g. "Tree" 16 and "Binary Tree" 16
+            // are largely the SAME problems, not 32 distinct problems).
             const generic: Record<string, { easy: number; medium: number; hard: number }> = {}
             const allTags = [
               ...(tagData.fundamental || []),
@@ -403,15 +443,26 @@ export class LeetCodeAdapter implements PlatformAdapter {
               ...(tagData.advanced || []),
             ]
 
+            const totalSolvedSum = easySolved + mediumSolved + hardSolved
+            const easyRatio = totalSolvedSum > 0 ? easySolved / totalSolvedSum : 0
+            const medRatio = totalSolvedSum > 0 ? mediumSolved / totalSolvedSum : 0
+
             for (const tag of allTags) {
               const genericTopic = lcToGeneric[tag.tagName]
               if (genericTopic) {
-                if (!generic[genericTopic]) generic[genericTopic] = { easy: 0, medium: 0, hard: 0 }
-                const lvl = tag.difficulty?.toLowerCase?.() || 'medium'
-                if (tag.difficulty === 'Easy' || tag === tagData.fundamental?.find((t: { tagName: string }) => t.tagName === tag.tagName)) {
-                  generic[genericTopic].easy += tag.problemsSolved || 0
+                const solved = tag.problemsSolved || 0
+                const approxEasy = Math.round(solved * easyRatio)
+                const approxMed = Math.round(solved * medRatio)
+                const approxHard = Math.max(0, solved - approxEasy - approxMed)
+
+                if (!generic[genericTopic]) {
+                  generic[genericTopic] = { easy: approxEasy, medium: approxMed, hard: approxHard }
                 } else {
-                  generic[genericTopic].medium += tag.problemsSolved || 0
+                  // Take the MAX of each difficulty, not the sum, since overlapping tags
+                  // count the same problems multiple times
+                  generic[genericTopic].easy = Math.max(generic[genericTopic].easy, approxEasy)
+                  generic[genericTopic].medium = Math.max(generic[genericTopic].medium, approxMed)
+                  generic[genericTopic].hard = Math.max(generic[genericTopic].hard, approxHard)
                 }
               }
             }
@@ -420,6 +471,20 @@ export class LeetCodeAdapter implements PlatformAdapter {
         }
       } catch {
         // Topic breakdown is best-effort for LeetCode
+      }
+
+      const rawCalendar = user.userCalendar?.submissionCalendar
+      let currentStreak = 0, longestStreak = 0
+      if (rawCalendar) {
+        try {
+          const calObj = JSON.parse(rawCalendar)
+          const dates = Object.keys(calObj).map(ts => new Date(parseInt(ts) * 1000))
+          const streaks = computeStreakFromDates(dates)
+          currentStreak = streaks.currentStreak
+          longestStreak = streaks.longestStreak
+        } catch (e) {
+          console.error('Failed to parse LeetCode calendar', e)
+        }
       }
 
       const data: ProblemStats = {
@@ -436,6 +501,8 @@ export class LeetCodeAdapter implements PlatformAdapter {
           reputation: user.profile?.reputation,
           contestBadge: user.contestBadge?.name,
           topPercentage: contestInfo?.topPercentage,
+          currentStreak,
+          longestStreak,
         },
       }
 

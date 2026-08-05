@@ -26,6 +26,12 @@ export interface ScoringContext {
     withCI: number
     avgStars: number
   }
+  development: {
+    repos: number
+    commits: number
+    stars: number
+    withReadme: number
+  }
   activity: {
     currentStreak: number
     longestStreak: number
@@ -150,13 +156,24 @@ function calculatePortfolioScore(ctx: ScoringContext): CategoryScore {
   const complexityScore = clamp(Math.floor(projects.avgComplexity * 4), 0, 30)
   const starBonus = clamp(Math.floor(projects.avgStars * 2), 0, 30)
 
-  const totalScore = countScore + qualityScore + complexityScore + starBonus
+  // Development / GitHub Bonus (0-100)
+  let githubScore = 0
+  if (ctx.development) {
+    const { repos, commits, stars, withReadme } = ctx.development
+    githubScore += clamp(Math.floor(repos * 2), 0, 30)
+    githubScore += clamp(Math.floor(commits / 10), 0, 30)
+    githubScore += clamp(Math.floor(stars * 3), 0, 20)
+    githubScore += clamp(Math.floor(withReadme * 2), 0, 20)
+  }
+
+  const totalScore = clamp(countScore + qualityScore + complexityScore + starBonus + githubScore, 0, 200)
 
   const details = {
     countScore,
     qualityScore,
     complexityScore,
     starBonus,
+    githubScore,
     projectCount: projects.count,
     avgComplexity: projects.avgComplexity,
     readmePct: Math.round(readmePct * 100),

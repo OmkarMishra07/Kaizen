@@ -113,6 +113,9 @@ export function TopicMatrix({ token }: TopicMatrixProps) {
               </TableRow>
             </TableFooter>
           </Table>
+          <div className="mt-2 text-[11px] text-muted-foreground flex justify-end">
+            * The Total row shows distinct problems solved across platforms. Because a single problem often has multiple tags (e.g. Array + Hash Table), the columns above will sum to a number higher than your true distinct total.
+          </div>
         </div>
       </CardContent>
     </Card>

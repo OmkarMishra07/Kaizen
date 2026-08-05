@@ -25,7 +25,9 @@ export async function POST(request: Request) {
     }
 
     // Check if user already exists
-    const existing = await db.user.findFirst()
+    const existing = await db.user.findUnique({
+      where: { username }
+    })
     if (existing) {
       return NextResponse.json(
         { error: 'User already exists. Use /api/auth/login to sign in.' },

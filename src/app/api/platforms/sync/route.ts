@@ -138,7 +138,9 @@ export async function POST(request: Request) {
           }
         }
 
-        totalProblemsSynced += data.totalSolved
+        if (account.platform !== 'GITHUB') {
+          totalProblemsSynced += data.totalSolved
+        }
       }
 
       results.push({
@@ -174,6 +176,7 @@ export async function POST(request: Request) {
       where: { platformAccount: { userId: uid } },
       orderBy: { snapshotDate: 'desc' },
       distinct: ['platformAccountId'],
+      include: { platformAccount: true },
     })
 
     let aggEasy = 0, aggMedium = 0, aggHard = 0, aggTotal = 0
@@ -181,6 +184,7 @@ export async function POST(request: Request) {
     let maxContest = 0
 
     for (const snap of latestSnapshots) {
+      if (snap.platformAccount.platform === 'GITHUB') continue
       aggEasy += snap.easySolved
       aggMedium += snap.mediumSolved
       aggHard += snap.hardSolved

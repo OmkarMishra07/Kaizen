@@ -103,6 +103,31 @@ export async function GET(request: Request) {
     const sevenDayActivePct = Math.round((sevenDayLogs.length / 7) * 100)
     const thirtyDayActivePct = Math.round((thirtyDayLogs.length / 30) * 100)
 
+    // Fetch platform specific streaks
+    const platformStreaks: Record<string, { current: number; longest: number }> = {}
+    const latestSnapshots = await db.problemSolvedSnapshot.findMany({
+      where: { platformAccount: { userId: uid } },
+      orderBy: { snapshotDate: 'desc' },
+      distinct: ['platformAccountId'],
+      include: { platformAccount: true },
+    })
+
+    for (const snap of latestSnapshots) {
+      if (snap.rawStats) {
+        try {
+          const raw = JSON.parse(snap.rawStats)
+          if (raw.currentStreak !== undefined && raw.longestStreak !== undefined) {
+            platformStreaks[snap.platformAccount.platform] = {
+              current: raw.currentStreak,
+              longest: raw.longestStreak,
+            }
+          }
+        } catch (e) {
+          // ignore parsing error
+        }
+      }
+    }
+
     return NextResponse.json({
       logs,
   	  stats: {
@@ -114,6 +139,7 @@ export async function GET(request: Request) {
       	    thirtyDayDays: thirtyDayLogs.length,
       	    totalLogs: allLogs.length,
       	  },
+      platformStreaks,
     })
   } catch (error) {
     console.error('Activity GET error:', error)

@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
-import { Trophy, LogOut, Loader2, BarChart3, Monitor, Grid3X3, CheckSquare, Activity, Target } from 'lucide-react'
+import { Trophy, LogOut, Loader2, BarChart3, Monitor, Grid3X3, CheckSquare, Activity, Target, Code2 } from 'lucide-react'
 
 import { RankBadge } from '@/components/dashboard/rank-badge'
 import { ScoreBreakdown } from '@/components/dashboard/score-breakdown'
@@ -26,6 +26,7 @@ import { PlatformList } from '@/components/platforms/platform-list'
 import { TopicMatrix } from '@/components/topics/topic-matrix'
 import { SkillChecklist } from '@/components/checklist/skill-checklist'
 import { ActivityLog } from '@/components/activity/activity-log'
+import { DevelopmentPanel } from '@/components/development/development-panel'
 import { GoalPlanner } from '@/components/goals/goal-planner'
 
 // ─── Auth Page ────────────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ function AuthPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4">
             <Trophy className="w-8 h-8 text-emerald-500" />
           </div>
-          <h1 className="text-2xl font-bold">SDE Readiness Tracker</h1>
+          <h1 className="text-2xl font-bold">Kaizen</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Your single trackable number for interview readiness
           </p>
@@ -406,7 +407,7 @@ function Dashboard({ token }: { token: string }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Trophy className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-base font-bold tracking-tight">SDE Tracker</h1>
+            <h1 className="text-base font-bold tracking-tight">Kaizen</h1>
           </div>
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={logout}>
             <LogOut className="w-4 h-4" />
@@ -431,6 +432,10 @@ function Dashboard({ token }: { token: string }) {
             <TabsTrigger value="topics" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
               <Grid3X3 className="w-3.5 h-3.5" />
               Topics
+            </TabsTrigger>
+            <TabsTrigger value="development" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
+              <Code2 className="w-3.5 h-3.5" />
+              Development
             </TabsTrigger>
             <TabsTrigger value="checklist" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
               <CheckSquare className="w-3.5 h-3.5" />
@@ -464,6 +469,14 @@ function Dashboard({ token }: { token: string }) {
               <p className="text-sm text-muted-foreground">Visual breakdown of your problem-solving across all DSA topics.</p>
             </div>
             <TopicMatrix token={token} />
+          </TabsContent>
+
+          <TabsContent value="development">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Development & Projects</h2>
+              <p className="text-sm text-muted-foreground">Your open-source contributions and development activity.</p>
+            </div>
+            <DevelopmentPanel token={token} />
           </TabsContent>
 
           <TabsContent value="checklist">

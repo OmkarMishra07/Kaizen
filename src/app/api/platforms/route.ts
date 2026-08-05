@@ -162,3 +162,36 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const userId = await authenticate(request)
+    if (userId instanceof NextResponse) return userId
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Account id is required' }, { status: 400 })
+    }
+
+    // Verify ownership
+    const existing = await db.platformAccount.findFirst({
+      where: { id, userId: userId as string },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+    }
+
+    await db.platformAccount.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Platforms DELETE error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+

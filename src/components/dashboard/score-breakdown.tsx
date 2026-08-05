@@ -51,15 +51,15 @@ export function ScoreBreakdown(props: ScoreBreakdownProps) {
     <div className="w-full">
       <ResponsiveContainer width="100%" height={300}>
         <RadarChart data={data} cx="50%" cy="50%" outerRadius="70%">
-          <PolarGrid stroke="hsl(var(--border))" />
+          <PolarGrid stroke="#888888" strokeOpacity={0.2} />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            tick={{ fill: '#888888', fontSize: 12 }}
           />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 100]}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+            tick={{ fill: '#888888', fontSize: 10 }}
             axisLine={false}
           />
           <Radar

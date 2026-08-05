@@ -125,6 +125,23 @@ export async function GET(request: Request) {
       }
     }
 
+    // Calculate longest streak
+    let longestStreak = 0
+    let tempStreak = 1
+    const sortedLogDates = allLogs.map(l => l.date).sort()
+    for (let i = 1; i < sortedLogDates.length; i++) {
+      const prev = new Date(sortedLogDates[i - 1])
+      const curr = new Date(sortedLogDates[i])
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays === 1) {
+        tempStreak++
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak)
+        tempStreak = 1
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak, currentStreak)
+
     const ctx: ScoringContext = {
       topics: topicCoverage.map(t => ({
         topic: t.topic, totalSolved: t.totalSolved,
@@ -142,7 +159,7 @@ export async function GET(request: Request) {
       },
       activity: {
         currentStreak,
-        longestStreak: 0,
+        longestStreak,
         sevenDayActive: allLogs.filter(l => {
           const d = new Date(l.date)
           const ago = new Date(); ago.setDate(ago.getDate() - 7)

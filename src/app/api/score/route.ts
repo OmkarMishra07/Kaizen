@@ -80,9 +80,9 @@ export async function GET(request: Request) {
     let maxContest = 0
 
     if (accounts.length > 0) {
-      const accountIds = accounts.map(a => a.id)
+      const accountMap = new Map(accounts.map(a => [a.id, a.platform]))
       const snapshots = await db.problemSolvedSnapshot.findMany({
-        where: { platformAccountId: { in: accountIds } },
+        where: { platformAccountId: { in: Array.from(accountMap.keys()) } },
         orderBy: { snapshotDate: 'desc' },
       })
 
@@ -91,6 +91,10 @@ export async function GET(request: Request) {
       for (const snap of snapshots) {
         if (seenPlatforms.has(snap.platformAccountId)) continue
         seenPlatforms.add(snap.platformAccountId)
+        
+        const platform = accountMap.get(snap.platformAccountId)
+        if (platform === 'GITHUB') continue // GitHub is for development score, not DSA problems
+        
         aggEasy += snap.easySolved
         aggMedium += snap.mediumSolved
         aggHard += snap.hardSolved
@@ -155,6 +159,25 @@ export async function GET(request: Request) {
     const mockInterviewItems = interviewItems.filter(i => i.skill.toLowerCase().includes('mock'))
     const resumeItems = interviewItems.filter(i => i.skill.toLowerCase().includes('resume'))
 
+    // 7. GitHub / Development Stats
+    let githubStats = { repos: 0, commits: 0, stars: 0, withReadme: 0 }
+    const githubAccount = accounts.find(a => a.platform === 'GITHUB')
+    if (githubAccount) {
+      const gitSnap = await db.problemSolvedSnapshot.findFirst({
+        where: { platformAccountId: githubAccount.id },
+        orderBy: { snapshotDate: 'desc' }
+      })
+      if (gitSnap && gitSnap.rawStats) {
+        const raw = JSON.parse(gitSnap.rawStats)
+        githubStats = {
+          repos: raw.repos || 0,
+          commits: raw.recentCommits || 0,
+          stars: raw.stars || 0,
+          withReadme: raw.reposWithReadme || 0,
+        }
+      }
+    }
+
     // Build scoring context
     const ctx: ScoringContext = {
       topics: topicCoverage.map(t => ({
@@ -185,6 +208,7 @@ export async function GET(request: Request) {
         withCI,
         avgStars,
       },
+      development: githubStats,
       activity: {
         currentStreak,
         longestStreak,

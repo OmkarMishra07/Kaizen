@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Flame, TrendingUp, Calendar, Zap, GitCommit, Code2 } from 'lucide-react'
+import { PLATFORM_LABELS } from '@/lib/types'
 
 interface ActivityLogProps {
   token: string
@@ -30,19 +33,27 @@ interface ActivityStats {
   totalLogs: number
 }
 
+interface PlatformStreaks {
+  [platform: string]: { current: number; longest: number }
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+function getLocalDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 function isToday(dateStr: string): boolean {
-  return dateStr === new Date().toISOString().slice(0, 10)
+  return dateStr === getLocalDateStr(new Date())
 }
 
 function isYesterday(dateStr: string): boolean {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  return dateStr === d.toISOString().slice(0, 10)
+  return dateStr === getLocalDateStr(d)
 }
 
 function relativeDay(dateStr: string): string {
@@ -52,6 +63,8 @@ function relativeDay(dateStr: string): string {
 }
 
 export function ActivityLog({ token }: ActivityLogProps) {
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['activity'],
     queryFn: async () => {
@@ -59,12 +72,21 @@ export function ActivityLog({ token }: ActivityLogProps) {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Failed to fetch activity')
-      return res.json() as Promise<{ logs: ActivityLogEntry[]; stats: ActivityStats }>
+      return res.json() as Promise<{ logs: ActivityLogEntry[]; stats: ActivityStats; platformStreaks?: PlatformStreaks }>
     },
   })
 
   const logs = data?.logs || []
   const stats = data?.stats
+  const platformStreaks = data?.platformStreaks || {}
+
+  let displayCurrentStreak = stats?.currentStreak || 0
+  let displayLongestStreak = stats?.longestStreak || 0
+
+  if (selectedPlatform !== 'ALL' && platformStreaks[selectedPlatform]) {
+    displayCurrentStreak = platformStreaks[selectedPlatform].current
+    displayLongestStreak = platformStreaks[selectedPlatform].longest
+  }
 
   if (isLoading) {
     return (
@@ -93,19 +115,40 @@ export function ActivityLog({ token }: ActivityLogProps) {
     <div className="space-y-6">
       {/* Stats cards */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard
-            icon={<Flame className="w-5 h-5" />}
-            label="Current Streak"
-            value={`${stats.currentStreak} days`}
-            color="text-orange-500"
-          />
-          <StatCard
-            icon={<TrendingUp className="w-5 h-5" />}
-            label="Longest Streak"
-            value={`${stats.longestStreak} days`}
-            color="text-emerald-500"
-          />
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Activity Stats</h2>
+            {Object.keys(platformStreaks).length > 0 && (
+              <div className="w-48">
+                <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Platforms (Combined)</SelectItem>
+                    {Object.keys(platformStreaks).map(p => (
+                      <SelectItem key={p} value={p}>
+                        {PLATFORM_LABELS[p as keyof typeof PLATFORM_LABELS] || p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard
+              icon={<Flame className="w-5 h-5" />}
+              label="Current Streak"
+              value={`${displayCurrentStreak} days`}
+              color="text-orange-500"
+            />
+            <StatCard
+              icon={<TrendingUp className="w-5 h-5" />}
+              label="Longest Streak"
+              value={`${displayLongestStreak} days`}
+              color="text-emerald-500"
+            />
           <StatCard
             icon={<Zap className="w-5 h-5" />}
             label="7-Day Active"
@@ -118,6 +161,7 @@ export function ActivityLog({ token }: ActivityLogProps) {
             value={`${stats.thirtyDayActivePct}%`}
             color="text-cyan-500"
           />
+        </div>
         </div>
       )}
 

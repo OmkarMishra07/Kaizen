@@ -39,7 +39,16 @@ export function StreakHeatmap({ logs, currentStreak, longestStreak }: StreakHeat
       return [l.date, { ...l, activityCount: count }]
     }))
 
+    const startDate = new Date(today)
+    startDate.setDate(startDate.getDate() - 89)
+    const startDay = startDate.getDay()
+
     const cells: Array<{ date: string; count: number; log?: ActivityLog }> = []
+
+    for (let i = 0; i < startDay; i++) {
+      cells.push({ date: '', count: -1 })
+    }
+
     for (let i = 89; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
@@ -61,7 +70,7 @@ export function StreakHeatmap({ logs, currentStreak, longestStreak }: StreakHeat
     return { cells, weeks }
   }, [logs])
 
-  const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', '']
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
     <Card className="rounded-xl border shadow-sm">
@@ -96,20 +105,24 @@ export function StreakHeatmap({ logs, currentStreak, longestStreak }: StreakHeat
             {/* Week columns */}
             {weeks.map((week, wi) => (
               <div key={wi} className="flex flex-col gap-1">
-                {week.map((cell) => (
-                  <Tooltip key={cell.date}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={`w-[14px] h-[14px] rounded-[3px] transition-colors cursor-default ${getColor(cell.count)}`}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      <p className="font-medium">{formatDate(cell.date)}</p>
-                      <p className="text-muted-foreground">
-                        {cell.count === 0 ? 'No activity' : `${cell.count} action(s)`}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
+                {week.map((cell, ci) => (
+                  cell.count === -1 ? (
+                    <div key={`empty-${ci}`} className="w-[14px] h-[14px]" />
+                  ) : (
+                    <Tooltip key={cell.date}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`w-[14px] h-[14px] rounded-[3px] transition-colors cursor-default ${getColor(cell.count)}`}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        <p className="font-medium">{formatDate(cell.date)}</p>
+                        <p className="text-muted-foreground">
+                          {cell.count === 0 ? 'No activity' : `${cell.count} action(s)`}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
                 ))}
               </div>
             ))}

@@ -115,16 +115,16 @@ export function ScoreHistoryChart({ snapshots }: ScoreHistoryChartProps) {
         ) : (
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#888888" strokeOpacity={0.2} />
               <XAxis
                 dataKey="shortDate"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                axisLine={{ stroke: 'hsl(var(--border))' }}
+                tick={{ fill: '#888888', fontSize: 11 }}
+                axisLine={{ stroke: '#888888', strokeOpacity: 0.2 }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                axisLine={{ stroke: 'hsl(var(--border))' }}
+                tick={{ fill: '#888888', fontSize: 11 }}
+                axisLine={{ stroke: '#888888', strokeOpacity: 0.2 }}
                 tickLine={false}
                 domain={[0, 'auto']}
               />

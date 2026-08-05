@@ -16,11 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SDE Readiness Tracker",
+  title: "Kaizen",
   description: "Your single trackable number for interview readiness. Track DSA, backend skills, portfolio quality, and consistency.",
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
 };
 
 export default function RootLayout({
