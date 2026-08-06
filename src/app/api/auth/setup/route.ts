@@ -64,12 +64,11 @@ export async function POST(request: Request) {
         topic,
       })),
     })
-    
     if (leetcode) {
       await db.platformAccount.create({
         data: {
           userId: user.id,
-          platform: 'LeetCode',
+          platform: 'LEETCODE',
           handle: leetcode
         }
       })
