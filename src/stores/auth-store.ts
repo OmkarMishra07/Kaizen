@@ -8,7 +8,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   login: (username: string, password: string) => Promise<boolean>
-  setup: (username: string, password: string) => Promise<boolean>
+  setup: (username: string, password: string, displayName?: string, leetcode?: string) => Promise<boolean>
   logout: () => void
   init: () => void
 }
@@ -44,13 +44,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  setup: async (username: string, password: string) => {
+  setup: async (username: string, password: string, displayName?: string, leetcode?: string) => {
     set({ isLoading: true })
     try {
       const res = await fetch('/api/auth/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, displayName, leetcode }),
       })
       if (!res.ok) {
         const data = await res.json()

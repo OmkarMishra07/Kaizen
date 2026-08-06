@@ -1,534 +1,159 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth-store'
-import { RANK_LADDER } from '@/lib/types'
-import type { CategoryScore, GapAnalysis } from '@/lib/types'
+import { ArrowRight, Menu } from 'lucide-react'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
-import { Trophy, LogOut, Loader2, BarChart3, Monitor, Grid3X3, CheckSquare, Activity, Target, Code2 } from 'lucide-react'
-
-import { RankBadge } from '@/components/dashboard/rank-badge'
-import { ScoreBreakdown } from '@/components/dashboard/score-breakdown'
-import { NextLevelCard } from '@/components/dashboard/next-level-card'
-import { StreakHeatmap } from '@/components/dashboard/streak-heatmap'
-import { ScoreHistoryChart } from '@/components/dashboard/score-history-chart'
-import { PlatformList } from '@/components/platforms/platform-list'
-import { TopicMatrix } from '@/components/topics/topic-matrix'
-import { SkillChecklist } from '@/components/checklist/skill-checklist'
-import { ActivityLog } from '@/components/activity/activity-log'
-import { DevelopmentPanel } from '@/components/development/development-panel'
-import { GoalPlanner } from '@/components/goals/goal-planner'
-
-// ─── Auth Page ────────────────────────────────────────────────────────────────
-
-function AuthPage() {
-  const { login, setup, isLoading } = useAuthStore()
-  const [isSetupMode, setIsSetupMode] = useState(false)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [seeding, setSeeding] = useState(false)
-
-  const trySeed = useCallback(async () => {
-    setSeeding(true)
-    try {
-      const res = await fetch('/api/seed', { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.token) {
-          localStorage.setItem('sde-token', data.token)
-          useAuthStore.setState({ token: data.token, isAuthenticated: true })
-          toast.success('Demo data loaded! Logged in as demo/demo')
-          return
-        }
-      }
-      // Seed already exists or failed, let user login normally
-    } catch {
-      // ignore
-    }
-    setSeeding(false)
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username.trim() || !password.trim()) {
-      toast.error('Please fill in all fields')
-      return
-    }
-    if (isSetupMode) {
-      const ok = await setup(username.trim(), password)
-      if (!ok && !useAuthStore.getState().isAuthenticated) {
-        // If setup fails because user exists, switch to login
-        toast.info('User may already exist. Try logging in.')
-      }
-    } else {
-      await login(username.trim(), password)
-    }
-  }
-
-  const handleQuickLogin = async () => {
-    setSeeding(true)
-    try {
-      const res = await fetch('/api/seed', { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.token) {
-          localStorage.setItem('sde-token', data.token)
-          useAuthStore.setState({ token: data.token, isAuthenticated: true })
-          toast.success('Demo account loaded! (demo/demo)')
-          return
-        }
-      }
-      // Already seeded, try login
-      const ok = await login('demo', 'demo')
-      if (!ok) {
-        toast.error('Demo login failed. Please create an account.')
-        setIsSetupMode(true)
-      }
-    } catch {
-      toast.error('Failed to initialize. Please try again.')
-    } finally {
-      setSeeding(false)
-    }
-  }
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm"
-      >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4">
-            <Trophy className="w-8 h-8 text-emerald-500" />
+    <div className="min-h-screen bg-white text-[#1b1b1b] selection:bg-black selection:text-white font-sans overflow-x-hidden">
+      {/* Top Navigation */}
+      <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+        <div className="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto">
+          {/* Brand Logo */}
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-extrabold text-black tracking-tighter">LevelUp</span>
           </div>
-          <h1 className="text-2xl font-bold">Kaizen</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Your single trackable number for interview readiness
-          </p>
-        </div>
-
-        <Card className="rounded-xl border shadow-lg">
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  placeholder="Enter username"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  autoComplete="username"
-                  disabled={isLoading || seeding}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  autoComplete={isSetupMode ? 'new-password' : 'current-password'}
-                  disabled={isLoading || seeding}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading || seeding}>
-                {(isLoading || seeding) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isSetupMode ? 'Create Account' : 'Sign In'}
-              </Button>
-            </form>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleQuickLogin}
-                disabled={isLoading || seeding}
-              >
-                {seeding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Quick Demo Login
-              </Button>
-              <button
-                type="button"
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors text-center"
-                onClick={() => setIsSetupMode(!isSetupMode)}
-              >
-                {isSetupMode
-                  ? 'Already have an account? Sign in'
-                  : 'First time? Create account'}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  )
-}
-
-// ─── Category Score Card ──────────────────────────────────────────────────────
-
-function CategoryScoreCard({ label, data, color }: { label: string; data: CategoryScore; color: string }) {
-  return (
-    <Card className="rounded-xl border shadow-sm">
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
-        <p className="text-2xl font-bold" style={{ color }}>{data.score}</p>
-        <p className="text-xs text-muted-foreground">/ {data.maxScore}</p>
-        <div className="mt-2 w-full bg-muted rounded-full h-1.5 overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${data.percentage}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="h-full rounded-full"
-            style={{ backgroundColor: color }}
-          />
-        </div>
-        <p className="text-xs mt-1 font-medium" style={{ color }}>{data.percentage}%</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
-
-function OverviewTab({ token }: { token: string }) {
-  const queryClient = useQueryClient()
-
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['score'],
-    queryFn: async () => {
-      const res = await fetch('/api/score', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error('Failed to fetch score')
-      return res.json() as Promise<{
-        score: {
-          compositeScore: number
-          rankLevel: string
-          rankName: string
-          dsa: CategoryScore
-          backend: CategoryScore
-          portfolio: CategoryScore
-          consistency: CategoryScore
-          interview: CategoryScore
-        }
-        gaps: GapAnalysis
-        context: {
-          totalProblems: number
-          topicsCovered: number
-          totalTopics: number
-          checklistCompleted: number
-          checklistTotal: number
-          projectCount: number
-          currentStreak: number
-          longestStreak: number
-        }
-      }>
-    },
-  })
-
-  const { data: historyData } = useQuery({
-    queryKey: ['score-history'],
-    queryFn: async () => {
-      const res = await fetch('/api/score/history?days=90', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error('Failed to fetch history')
-      return res.json() as Promise<{
-        history: Array<{
-          date: string
-          compositeScore: number
-          dsaScore: number
-          backendScore: number
-          portfolioScore: number
-          consistencyScore: number
-          interviewScore: number
-        }>
-      }>
-    },
-  })
-
-  const { data: activityData } = useQuery({
-    queryKey: ['activity-heatmap'],
-    queryFn: async () => {
-      const res = await fetch('/api/activity?days=90', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error('Failed')
-      return res.json() as Promise<{
-        logs: Array<{
-          id: string
-          date: string
-          syncedProblems: number
-          commitsMade: number
-          platformActivity: string | null
-          notes: string | null
-        }>
-        stats: { currentStreak: number; longestStreak: number; sevenDayActivePct: number; thirtyDayActivePct: number }
-      }>
-    },
-  })
-
-  const handleRefresh = () => {
-    refetch()
-    queryClient.invalidateQueries({ queryKey: ['score-history'] })
-    queryClient.invalidateQueries({ queryKey: ['activity-heatmap'] })
-    toast.success('Data refreshed')
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-72 rounded-2xl" />
-          <div className="lg:col-span-2 space-y-4">
-            <Skeleton className="h-[300px] rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
-          </div>
-        </div>
-        <div className="grid grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    )
-  }
-
-  if (error || !data) {
-    return (
-      <div className="text-center py-16 text-muted-foreground">
-        <p className="text-lg">Failed to load dashboard data.</p>
-        <Button variant="outline" className="mt-4" onClick={handleRefresh}>
-          Retry
-        </Button>
-      </div>
-    )
-  }
-
-  const { score, gaps, context } = data
-  const rankColor = RANK_LADDER.find(r => r.level === score.rankLevel)?.color || '#10b981'
-  const snapshots = historyData?.history || []
-  const activityLogs = activityData?.logs || []
-  const activityStats = activityData?.stats
-
-  return (
-    <div className="space-y-6">
-      {/* Top: Rank Badge + Composite Score */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <RankBadge
-          level={score.rankLevel}
-          name={score.rankName}
-          score={score.compositeScore}
-          color={rankColor}
-        />
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <ScoreBreakdown
-            dsa={score.dsa}
-            backend={score.backend}
-            portfolio={score.portfolio}
-            consistency={score.consistency}
-            interview={score.interview}
-          />
-          {/* Quick context stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MiniStat label="Problems" value={String(context.totalProblems)} />
-            <MiniStat label="Topics" value={`${context.topicsCovered}/${context.totalTopics}`} />
-            <MiniStat label="Checklist" value={`${context.checklistCompleted}/${context.checklistTotal}`} />
-            <MiniStat label="Projects" value={String(context.projectCount)} />
-          </div>
-        </div>
-      </div>
-
-      {/* Category Score Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <CategoryScoreCard label="DSA" data={score.dsa} color="#f59e0b" />
-        <CategoryScoreCard label="Backend" data={score.backend} color="#8b5cf6" />
-        <CategoryScoreCard label="Portfolio" data={score.portfolio} color="#06b6d4" />
-        <CategoryScoreCard label="Consistency" data={score.consistency} color="#f43f5e" />
-        <CategoryScoreCard label="Interview" data={score.interview} color="#ec4899" />
-      </div>
-
-      {/* Next Level + Streak Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <NextLevelCard
-          nextRankLevel={gaps.nextRankLevel}
-          nextRankName={gaps.nextRankName}
-          scoreGap={gaps.scoreGap}
-          suggestions={gaps.suggestions}
-        />
-        <StreakHeatmap
-          logs={activityLogs}
-          currentStreak={activityStats?.currentStreak || context.currentStreak}
-          longestStreak={activityStats?.longestStreak || context.longestStreak}
-        />
-      </div>
-
-      {/* Score History */}
-      <ScoreHistoryChart snapshots={snapshots} />
-    </div>
-  )
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="p-3 rounded-lg bg-muted/50 border">
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-bold mt-0.5">{value}</p>
-    </div>
-  )
-}
-
-// ─── Dashboard Shell ──────────────────────────────────────────────────────────
-
-function Dashboard({ token }: { token: string }) {
-  const logout = useAuthStore(s => s.logout)
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Trophy className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-base font-bold tracking-tight">Kaizen</h1>
-          </div>
-          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={logout}>
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </Button>
+          {/* Navigation Links */}
+          <nav className="hidden md:flex gap-8">
+            <Link className="text-black font-bold border-b-2 border-black pb-1 text-xs uppercase transition-all duration-300 hover:scale-105" href="#">Home</Link>
+            <Link className="text-gray-600 text-xs uppercase transition-all duration-300 hover:text-black hover:scale-105" href="#">Features</Link>
+            <Link className="text-gray-600 text-xs uppercase transition-all duration-300 hover:text-black hover:scale-105" href="#">Pricing</Link>
+            <Link className="text-gray-600 text-xs uppercase transition-all duration-300 hover:text-black hover:scale-105" href="#">Blog</Link>
+          </nav>
+          {/* Trailing Action */}
+          <Link href="/login" className="hidden md:flex items-center gap-2 px-6 py-3 border border-black rounded-full text-xs uppercase text-black hover:bg-black hover:text-white transition-colors duration-300 group">
+            Get Started
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </Link>
+          {/* Mobile Menu Icon */}
+          <button className="md:hidden text-black">
+            <Menu className="w-6 h-6" />
+          </button>
         </div>
       </header>
+      
+      <main className="pt-[120px]">
+        {/* Hero Section */}
+        <section className="relative min-h-[90vh] flex flex-col items-center justify-start pt-16 px-8 text-center overflow-hidden">
+          {/* Content */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="z-10 max-w-4xl mx-auto flex flex-col items-center gap-6"
+          >
+            <span className="text-xl text-gray-500 italic font-serif">Your Progress, Perfectly Scored.</span>
+            <h1 className="text-5xl md:text-7xl font-extrabold text-black max-w-3xl leading-tight tracking-tight">
+              Track Smarter,<br />Rank Higher
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mt-4">
+              A comprehensive readiness engine that scores your DSA, backend, portfolio, and interview prep — then ranks you from L0 to L6 as you climb toward SDE-1.
+            </p>
+            <p className="text-sm text-gray-500 opacity-80">
+              Visualize your technical evolution with real-time analytics and behavioral tracking.
+            </p>
+            <Link href="/login" className="mt-8 flex items-center gap-2 px-8 py-4 bg-black text-white rounded-full text-xs uppercase font-bold hover:bg-opacity-90 transition-all shadow-lg group">
+              Try it Free
+              <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6">
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="w-full flex h-auto p-1 bg-muted/50 rounded-lg mb-6 overflow-x-auto">
-            <TabsTrigger value="overview" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Overview</span>
-              <span className="sm:hidden">Home</span>
-            </TabsTrigger>
-            <TabsTrigger value="platforms" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <Monitor className="w-3.5 h-3.5" />
-              Platforms
-            </TabsTrigger>
-            <TabsTrigger value="topics" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <Grid3X3 className="w-3.5 h-3.5" />
-              Topics
-            </TabsTrigger>
-            <TabsTrigger value="development" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <Code2 className="w-3.5 h-3.5" />
-              Development
-            </TabsTrigger>
-            <TabsTrigger value="checklist" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <CheckSquare className="w-3.5 h-3.5" />
-              Checklist
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <Activity className="w-3.5 h-3.5" />
-              Activity
-            </TabsTrigger>
-            <TabsTrigger value="goals" className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-background">
-              <Target className="w-3.5 h-3.5" />
-              Goals
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview">
-            <OverviewTab token={token} />
-          </TabsContent>
-
-          <TabsContent value="platforms">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Platform Accounts</h2>
-              <p className="text-sm text-muted-foreground">Connect and sync your coding platform accounts.</p>
+          {/* Dashboard Mockup & Enhanced Gradient */}
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="relative w-full max-w-6xl mt-16 z-10 flex flex-col items-center perspective-1000"
+          >
+            {/* Dramatic Deep Violet-to-Orange Gradient Background */}
+            <div className="absolute inset-0 w-[140%] h-[140%] -left-[20%] -top-[20%] opacity-20 blur-[100px] pointer-events-none" style={{ background: 'radial-gradient(circle at center, #6b38d4 0%, #E66D35 70%)' }}></div>
+            
+            {/* Floating Dashboard Mockup */}
+            <div className="relative w-[95%] md:w-[90%] aspect-video bg-[#111111] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transform hover:rotate-x-0 transition-transform duration-700 ease-out z-20">
+              <div className="w-full h-full flex items-center justify-center text-gray-500">
+                {/* Fallback mockup box */}
+                <span className="text-xl">Dashboard Mockup</span>
+              </div>
             </div>
-            <PlatformList token={token} />
-          </TabsContent>
-
-          <TabsContent value="topics">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">DSA Topic Coverage</h2>
-              <p className="text-sm text-muted-foreground">Visual breakdown of your problem-solving across all DSA topics.</p>
+            
+            {/* Glassmorphic Feature Callouts */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 w-full px-8 z-30">
+              <div className="bg-white/50 backdrop-blur-md border border-gray-200 p-4 rounded-xl text-center shadow-sm">
+                <span className="text-xs uppercase text-black font-bold block mb-1">6-Tab Dashboard</span>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Unified View</p>
+              </div>
+              <div className="bg-white/50 backdrop-blur-md border border-gray-200 p-4 rounded-xl text-center shadow-sm">
+                <span className="text-xs uppercase text-black font-bold block mb-1">Radar Charts</span>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Skill Balance</p>
+              </div>
+              <div className="bg-white/50 backdrop-blur-md border border-gray-200 p-4 rounded-xl text-center shadow-sm">
+                <span className="text-xs uppercase text-black font-bold block mb-1">Streak Heatmaps</span>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Consistency</p>
+              </div>
+              <div className="bg-white/50 backdrop-blur-md border border-gray-200 p-4 rounded-xl text-center shadow-sm">
+                <span className="text-xs uppercase text-black font-bold block mb-1">Score History</span>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Growth Tracking</p>
+              </div>
             </div>
-            <TopicMatrix token={token} />
-          </TabsContent>
+          </motion.div>
+        </section>
 
-          <TabsContent value="development">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Development & Projects</h2>
-              <p className="text-sm text-muted-foreground">Your open-source contributions and development activity.</p>
+        {/* Second Section - Features Editorial */}
+        <section className="py-32 px-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-16">
+            {/* Headline Left */}
+            <div className="col-span-1 md:col-span-6">
+              <h2 className="text-4xl md:text-5xl font-bold text-black pr-8">
+                Designed to Help You <span className="italic text-gray-600 font-serif font-normal">Climb</span>,<br />Not Guess
+              </h2>
             </div>
-            <DevelopmentPanel token={token} />
-          </TabsContent>
+            {/* Intro Right */}
+            <div className="col-span-1 md:col-span-6 flex items-end">
+              <p className="text-lg text-gray-600 md:pl-16 border-l md:border-gray-200">
+                Stop wandering through generic problem sets. Our platform analyzes your commit history, solving speed, and technical breadth to build a ruthless, highly structured path to your first engineering role.
+              </p>
+            </div>
+            
+            {/* Three Column Features */}
+            <div className="col-span-1 md:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-12 mt-12">
+              <div className="flex flex-col gap-4 border-t border-black pt-6">
+                <span className="text-xs uppercase text-purple-600 font-bold">01</span>
+                <h3 className="text-2xl font-bold text-black tracking-tight">Weighted Scoring Engine</h3>
+                <p className="text-sm text-gray-600">Intelligently evaluates your performance across DSA, Backend, Portfolio, Consistency, and Interview Prep, generating a holistic readiness score.</p>
+              </div>
+              <div className="flex flex-col gap-4 border-t border-black pt-6">
+                <span className="text-xs uppercase text-purple-600 font-bold">02</span>
+                <h3 className="text-2xl font-bold text-black tracking-tight">Multi-Platform Sync</h3>
+                <p className="text-sm text-gray-600">Automatically aggregates your activity from LeetCode, GitHub, Codeforces, GeeksforGeeks, and HackerRank into a single, unified profile.</p>
+              </div>
+              <div className="flex flex-col gap-4 border-t border-black pt-6">
+                <span className="text-xs uppercase text-purple-600 font-bold">03</span>
+                <h3 className="text-2xl font-bold text-black tracking-tight">L0-L6 Rank Ladder</h3>
+                <p className="text-sm text-gray-600">A strict, gamified progression system with hard caps. You don't rank up until your skills are verifiably ready for the next tier of technical rigor.</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          <TabsContent value="checklist">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Backend Skill Checklist</h2>
-              <p className="text-sm text-muted-foreground">Track your backend engineering skills with evidence.</p>
+        {/* Footer */}
+        <footer className="w-full bg-gray-50 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-center px-8 py-12 max-w-7xl mx-auto gap-8">
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-extrabold text-black">LevelUp</span>
             </div>
-            <SkillChecklist token={token} />
-          </TabsContent>
-
-          <TabsContent value="activity">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Daily Activity & Consistency</h2>
-              <p className="text-sm text-muted-foreground">Your activity log and streak tracking.</p>
-            </div>
-            <ActivityLog token={token} />
-          </TabsContent>
-
-          <TabsContent value="goals">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Goal Planner</h2>
-              <p className="text-sm text-muted-foreground">AI-generated priorities and a weekly focus plan based on your gaps.</p>
-            </div>
-            <GoalPlanner token={token} />
-          </TabsContent>
-        </Tabs>
+            <nav className="flex flex-wrap justify-center gap-6">
+              <Link className="text-black font-bold text-xs uppercase opacity-80 hover:opacity-100 transition-colors" href="#">Home</Link>
+              <Link className="text-gray-600 text-xs uppercase opacity-80 hover:opacity-100 hover:text-black transition-colors" href="/login">Dashboard</Link>
+              <Link className="text-gray-600 text-xs uppercase opacity-80 hover:opacity-100 hover:text-black transition-colors" href="#">Features</Link>
+              <Link className="text-gray-600 text-xs uppercase opacity-80 hover:opacity-100 hover:text-black transition-colors" href="#">Pricing</Link>
+              <Link className="text-gray-600 text-xs uppercase opacity-80 hover:opacity-100 hover:text-black transition-colors" href="#">Blog</Link>
+            </nav>
+            <p className="text-sm text-gray-500">© 2026 LevelUp. Precision Engineering for Developers.</p>
+          </div>
+        </footer>
       </main>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-xs text-muted-foreground">
-            SDE Readiness Tracker — Your single trackable number for interview readiness
-          </p>
-        </div>
-      </footer>
     </div>
   )
-}
-
-// ─── Root Page ────────────────────────────────────────────────────────────────
-
-export default function HomePage() {
-  const { isAuthenticated, token, init } = useAuthStore()
-
-  useEffect(() => {
-    init()
-  }, [init])
-
-  if (!isAuthenticated || !token) {
-    return <AuthPage />
-  }
-
-  return <Dashboard token={token} />
 }

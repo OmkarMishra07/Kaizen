@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { username, password } = body
+    const { username, password, displayName, leetcode } = body
 
     if (!username || !password) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       data: {
         username,
         passwordHash,
-        displayName: username,
+        displayName: displayName || username,
       },
     })
 
@@ -64,6 +64,16 @@ export async function POST(request: Request) {
         topic,
       })),
     })
+    
+    if (leetcode) {
+      await db.platformAccount.create({
+        data: {
+          userId: user.id,
+          platform: 'LeetCode',
+          handle: leetcode
+        }
+      })
+    }
 
     // Create JWT
     const token = await createToken(user.id)
